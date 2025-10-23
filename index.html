@@ -1,202 +1,48 @@
-let fireworks = [];
-let fullScore = false; 
-
-
-class Particle {
-    constructor(x, y, hue, firework) {
-        this.pos = createVector(x, y);
-        this.firework = firework; 
-        this.hue = hue;
-        this.acc = createVector(0, 0);
-        
-        if (this.firework) {
-            
-            this.vel = createVector(0, random(-12, -8)); 
-        } else {
-           
-            this.vel = p5.Vector.random2D();
-            this.vel.mult(random(2, 10));
-        }
+<style>
+    /* 讓內容置中方便查看 */
+    body { 
+        margin: 0; 
+        display: flex; 
+        flex-direction: column;
+        align-items: center; 
+        min-height: 100vh; 
+        font-family: Arial, sans-serif;
     }
     
-   
-    applyForce(force) {
-        this.acc.add(force);
+    /* 新增：分數顯示的容器，用於設定相對定位 */
+    #scoreDisplayContainer {
+        margin-top: 20px;
+        /* 讓子元素可以進行絕對定位，實現重疊 */
+        position: relative; 
+        width: 800px; /* 寬度應與 iframe 相同 */
+        height: 600px; /* 高度應與 iframe 相同 */
     }
 
-    update() {
-        if (!this.firework) {
-            // 碎片會逐漸消失
-            this.vel.mult(0.9); 
-            this.lifespan -= 4; 
-        }
-        
-        this.vel.add(this.acc);
-        this.pos.add(this.vel);
-        this.acc.mult(0); 
+    /* 確保 iframe 在容器中是正常定位的 */
+    #h5pIframe {
+        /* 為了讓 Canvas 蓋住，可以將 iframe 的 z-index 設定為較低 */
+        z-index: 1; 
     }
+
+    /* p5.js Canvas 會自動創建在 body 內。我們需要用 CSS 選取它，並將其定位到重疊的位置 */
+    #scoreDisplayContainer canvas {
+        position: absolute; /* 絕對定位，實現重疊 */
+        top: 0;
+        left: 0;
+        z-index: 10; /* 確保 Canvas 蓋在 iframe 上方 */
+        display: none; /* 預設隱藏 Canvas (關鍵) */
+    }
+</style>
+<body>
+    <h1>H5P 互動與 p5.js 成績顯示</h1>
     
-   
-    show() {
-        colorMode(HSB);
-        
-        if (!this.firework) {
-            
-            strokeWeight(2);
-            stroke(this.hue, 255, 255, this.lifespan);
-        } else {
-            
-            strokeWeight(4);
-            stroke(this.hue, 255, 255);
-        }
-        
-        point(this.pos.x, this.pos.y);
-    }
-
-
-    done() {
-        return this.lifespan < 0;
-    }
-}
-
-
-class Firework {
-    constructor() {
-        this.hue = random(255);
-        this.firework = new Particle(random(width), height, this.hue, true);
-        this.exploded = false;
-        this.particles = []; 
-    }
-    
-    update() {
-        if (!this.exploded) {
-            this.firework.applyForce(gravity);
-            this.firework.update();
-            
-            
-            if (this.firework.vel.y >= 0) {
-                this.exploded = true;
-                this.explode();
-            }
-        }
-        
-      
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            this.particles[i].applyForce(gravity);
-            this.particles[i].update();
-            if (this.particles[i].done()) {
-                this.particles.splice(i, 1); 
-            }
-        }
-    }
-    
-  
-    explode() {
-        for (let i = 0; i < 100; i++) {
-            const p = new Particle(this.firework.pos.x, this.firework.pos.y, this.hue, false);
-            this.particles.push(p);
-        }
-    }
-    
-    
-    show() {
-        if (!this.exploded) {
-            this.firework.show();
-        }
-        
-        for (let i = 0; i < this.particles.length; i++) {
-            this.particles[i].show();
-        }
-    }
-    
-    
-    done() {
-        return this.exploded && this.particles.length === 0;
-    }
-}
-
-
-
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
-let gravity;
-
-
-let canvasElement;
-
-function setup() {
-  
-    const container = select('#scoreDisplayContainer');
-    const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
-    canvas.parent(container); 
-    canvasElement = canvas.elt;
-
-    gravity = createVector(0, 0.2); 
-    stroke(255); 
-    strokeWeight(4);
-    background(0);
-}
-
-function draw() {
-    if (fullScore) {
-        canvasElement.style.display = 'block'; // 顯示 Canvas
-        colorMode(RGB);
-       
-        background(0, 0, 0, 25); 
-        
-       
-        if (random(1) < 0.05 && frameCount % 20 === 0) {
-            
-            fireworks.push(new Firework()); 
-        }
-
-       
-        for (let i = fireworks.length - 1; i >= 0; i--) {
-            fireworks[i].update();
-            fireworks[i].show();
-
-            if (fireworks[i].done()) {
-                fireworks.splice(i, 1);
-            }
-        }
-    } else {
-       
-        canvasElement.style.display = 'none'; 
-    
-        fireworks = [];
-    }
-}
-
-
-
-window.addEventListener('message', (event) => {
-  
-    
-    if (event.data && event.data.context && event.data.context.source === 'H5P.xAPI') {
-        const statement = event.data.statement;
-        
-       
-        if (statement.verb.id.endsWith('completed') || statement.verb.id.endsWith('answered')) {
-            const result = statement.result;
-            
-           
-            if (result && result.score && result.score.scaled !== undefined) {
-               
-                const scaledScore = result.score.scaled;
-                
-                console.log("Scaled Score:", scaledScore);
-                
-              
-                if (scaledScore === 1.0) {
-                    console.log("滿分! 啟動煙花!");
-                    fullScore = true;
-                   
-                    fireworks.push(new Firework()); 
-                } else {
-                    console.log("未滿分，分數:", scaledScore);
-                    fullScore = false;
-                }
-            }
-        }
-    }
-}, false);
+    <div id="scoreDisplayContainer">
+        <iframe 
+            id="h5pIframe" 
+            src="1.html" 
+            width="800" 
+            height="600" 
+            style="border: 2px solid #ccc;">
+        </iframe>
+    </div>
+</body>
