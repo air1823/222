@@ -1,265 +1,64 @@
-// =================================================================
-// 步驟一：模擬成績數據接收
-// -----------------------------------------------------------------
-
-
-// 確保這是全域變數
-let finalScore = 0; 
-let maxScore = 0;
-let scoreText = "尚未收到成績"; // 用於 p5.js 繪圖的文字
-
-// 【新增】煙火相關全域變數
-let fireworks = []; // 儲存所有活躍的煙火實例
-let gravity; // 用於粒子系統的重力向量
-
-
-window.addEventListener('message', function (event) {
-    // 執行來源驗證...
-    // ...
-    const data = event.data;
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>H5P 成績分數顯示範例 (p5.js)</title>
     
-    if (data && data.type === 'H5P_SCORE_RESULT') {
-        
-        // !!! 關鍵步驟：更新全域變數 !!!
-        const oldFinalScore = finalScore;
-        const oldMaxScore = maxScore;
-        
-        finalScore = data.score; // 更新全域變數
-        maxScore = data.maxScore;
-        scoreText = `最終成績分數: ${finalScore}/${maxScore}`;
-        
-        console.log("新的分數已接收:", scoreText); 
-        
-        // ----------------------------------------
-        // 關鍵步驟 2: 呼叫重新繪製 (見方案二)
-        // ----------------------------------------
-        // 每次收到新分數都先呼叫一次 redraw() 來更新靜態畫面
-        if (typeof redraw === 'function') {
-            redraw(); 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.js"></script> 
+    <script src="libraries/p5.min.js"></script>
+    <script src="libraries/p5.sound.min.js"></script>
+    <script src="sketch.js"></script>
+    
+    <style>
+        /* 讓內容置中方便查看 */
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            min-height: 100vh; 
+            font-family: Arial, sans-serif;
         }
         
-        // 【修改】分數滿分時觸發一個煙火，並啟動動畫循環
-        if (maxScore > 0 && finalScore === maxScore && (oldFinalScore !== finalScore || oldMaxScore !== maxScore)) {
-            // 在畫面底部隨機位置發射一個煙火
-            fireworks.push(new Firework(random(width * 0.2, width * 0.8), height)); 
-            // 由於煙火是動畫，我們需要確保 draw() 函式持續循環
-            loop(); 
-        } else if (finalScore !== maxScore) {
-            // 如果不是滿分，確保在更新靜態分數後停止動畫循環
-            noLoop();
-        }
-    }
-}, false);
-
-
-// =================================================================
-// 步驟二：使用 p5.js 繪製分數 (在網頁 Canvas 上顯示)
-// -----------------------------------------------------------------
-
-function setup() { 
-    createCanvas(windowWidth / 2, windowHeight / 2); 
-    // 【修改】初始化重力
-    gravity = createVector(0, 0.2);
-    // 【修改】使用 HSB 顏色模式，讓煙火顏色變化更方便
-    colorMode(HSB); 
-    
-    // 初始狀態：停止循環，等待分數或煙火來啟動它
-    noLoop(); 
-} 
-
-// score_display.js 中的 draw() 函數片段
-
-function draw() { 
-    // 【修改】清除背景，使用帶有透明度的黑色背景 (0, 0, 0, 50) 
-    // 這是產生煙火尾跡（trail effect）的**關鍵**。
-    background(0, 0, 0, 50); 
-    
-    let percentage = maxScore > 0 ? (finalScore / maxScore) * 100 : 0;
-
-    // -----------------------------------------------------------------
-    // C. 處理煙火效果 (優先顯示在背景之上)
-    // -----------------------------------------------------------------
-    for (let i = fireworks.length - 1; i >= 0; i--) {
-        fireworks[i].update();
-        fireworks[i].show();
-        if (fireworks[i].done()) {
-            fireworks.splice(i, 1); // 移除已結束的煙火
-        }
-    }
-    
-    // 【新增】如果沒有任何煙火在畫面上，且不是滿分狀態，則停止循環
-    // 如果是滿分狀態，我們希望可以持續發射新煙火，所以保持 loop()
-    if (fireworks.length === 0 && finalScore !== maxScore) {
-        noLoop(); 
-    }
-    
-    // -----------------------------------------------------------------
-    // A. 根據分數區間改變文本顏色和內容 (畫面反映一)
-    // -----------------------------------------------------------------
-    
-    // 確保文本清晰：在文字周圍繪製一個半透明的白色矩形
-    fill(255, 200); 
-    rectMode(CENTER);
-    noStroke();
-    rect(width / 2, height / 2, width, 250); // 覆蓋文字周圍區域
-    
-    textSize(80); 
-    textAlign(CENTER);
-    
-    if (percentage >= 100 && maxScore > 0) {
-        // 滿分：顯示祝賀文本
-        fill(60, 255, 255); // 鮮豔的黃綠色 (HSB)
-        text("🎉 完美！恭喜滿分！ 🎉", width / 2, height / 2 - 50);
-        
-        // 滿分時，如果煙火列表為空，則每隔一段時間再發射一個新的煙火
-        if (fireworks.length < 3 && frameCount % 30 === 0) { // 每 30 幀發射
-             fireworks.push(new Firework(random(width * 0.2, width * 0.8), height));
+        /* 新增：分數顯示的容器，用於設定相對定位 */
+        #scoreDisplayContainer {
+            margin-top: 20px;
+            /* 讓子元素可以進行絕對定位，實現重疊 */
+            position: relative; 
+            width: 800px; /* 寬度應與 iframe 相同 */
+            height: 600px; /* 高度應與 iframe 相同 */
         }
 
-    } else if (percentage >= 90) {
-        // 高分
-        fill(100, 255, 200); // 綠色
-        text("恭喜！優異成績！", width / 2, height / 2 - 50);
-        
-    } else if (percentage >= 60) {
-        // 中等分數
-        fill(40, 255, 200); // 黃色
-        text("成績良好，請再接再厲。", width / 2, height / 2 - 50);
-        
-    } else if (percentage > 0) {
-        // 低分
-        fill(0, 255, 200); // 紅色
-        text("需要加強努力！", width / 2, height / 2 - 50);
-        
-    } else {
-        // 尚未收到分數或分數為 0
-        fill(150);
-        text(scoreText, width / 2, height / 2);
-    }
-
-    // 顯示具體分數
-    textSize(50);
-    fill(0); // 黑色文字
-    text(`得分: ${finalScore}/${maxScore}`, width / 2, height / 2 + 50);
-    
-    
-    // -----------------------------------------------------------------
-    // B. 根據分數觸發不同的幾何圖形反映 (畫面反映二)
-    // -----------------------------------------------------------------
-    
-    if (percentage >= 90) {
-        // 畫一個大圓圈代表完美 
-        fill(100, 255, 150, 0.5); // 綠色 (HSB + 透明度)
-        noStroke();
-        circle(width / 2, height / 2 + 150, 150);
-        
-    } else if (percentage >= 60) {
-        // 畫一個方形 
-        fill(40, 255, 150, 0.5); // 黃色 (HSB + 透明度)
-        rectMode(CENTER);
-        rect(width / 2, height / 2 + 150, 150, 150);
-    }
-}
-
-// =================================================================
-// 步驟三：定義煙火和粒子類別 (用於特效)
-// -----------------------------------------------------------------
-
-class Particle {
-    constructor(x, y, hu, firework) {
-        this.pos = createVector(x, y);
-        this.firework = firework;
-        this.lifespan = 255;
-        this.hu = hu; // 粒子的色相 (Hue)
-
-        if (this.firework) {
-            // 煙火上升階段 (火箭)
-            this.vel = createVector(0, random(-12, -8));
-        } else {
-            // 爆炸後的粒子
-            this.vel = p5.Vector.random2D(); // 隨機方向
-            this.vel.mult(random(2, 10)); // 隨機速度
-        }
-        this.acc = createVector(0, 0);
-    }
-
-    applyForce(force) {
-        // 施加的力與粒子的質量無關，因此直接相加
-        this.acc.add(force); 
-    }
-
-    update() {
-        if (!this.firework) {
-            this.vel.mult(0.9); // 爆炸粒子速度隨時間衰減
-            this.lifespan -= 4; // 壽命減少，產生消失效果
-        }
-        this.vel.add(this.acc);
-        this.pos.add(this.vel);
-        this.acc.mult(0); // 重設加速度
-    }
-
-    done() {
-        return this.lifespan < 0;
-    }
-
-    show() {
-        // 設定 HSB 模式下的顏色
-        strokeWeight(this.firework ? 4 : 2); // 火箭粗一點
-        // HSB 顏色：色相(H), 飽和度(S), 亮度(B), 透明度(Alpha)
-        stroke(this.hu, 255, 255, this.firework ? 255 : this.lifespan);
-        
-        point(this.pos.x, this.pos.y);
-    }
-}
-
-class Firework {
-    constructor(x, y) {
-        this.hu = random(255); // 隨機顏色
-        this.firework = new Particle(x, y, this.hu, true); // 火箭粒子
-        this.exploded = false;
-        this.particles = [];
-    }
-
-    update() {
-        if (!this.exploded) {
-            this.firework.applyForce(gravity);
-            this.firework.update();
-
-            // 爆炸條件：當火箭開始下墜時 (垂直速度由負轉正)
-            if (this.firework.vel.y >= 0) {
-                this.exploded = true;
-                this.explode();
-            }
+        /* 確保 iframe 在容器中是正常定位的 */
+        #h5pIframe {
+             /* 為了讓 Canvas 蓋住，可以將 iframe 的 z-index 設定為較低 */
+             z-index: 1; 
         }
 
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            this.particles[i].applyForce(gravity);
-            this.particles[i].update();
-            if (this.particles[i].done()) {
-                this.particles.splice(i, 1);
-            }
-        }
-    }
-
-    explode() {
-        for (let i = 0; i < 100; i++) { // 生成 100 個粒子
-            const p = new Particle(this.firework.pos.x, this.firework.pos.y, this.hu, false);
-            this.particles.push(p);
-        }
-    }
-
-    show() {
-        if (!this.exploded) {
-            this.firework.show();
+        /* p5.js Canvas 會自動創建在 body 內。我們需要用 CSS 選取它，並將其定位到重疊的位置 */
+        /* p5.js 創建的 Canvas 會在父容器中成為第一個 Canvas 元素 */
+        #scoreDisplayContainer canvas {
+            position: absolute; /* 絕對定位，實現重疊 */
+            top: 0;
+            left: 0;
+            z-index: 10; /* 確保 Canvas 蓋在 iframe 上方 */
+            display: none; /* 預設隱藏 Canvas */
         }
         
-        for (const p of this.particles) {
-            p.show();
-        }
-    }
-
-    done() {
-        // 如果已經爆炸且所有粒子都消失了，則煙火結束
-        return this.exploded && this.particles.length === 0;
-    }
-}
+    </style>
+</head>
+<body>
+    <h1>H5P 互動與 p5.js 成績顯示</h1>
+    
+    <div id="scoreDisplayContainer">
+        <iframe 
+            id="h5pIframe" 
+            src="1.html" 
+            width="800" 
+            height="600" 
+            style="border: 2px solid #ccc;">
+        </iframe>
+        </div>
+    
+</body>
+</html>
