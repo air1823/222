@@ -1,5 +1,5 @@
 // =================================================================
-// 步驟一：模擬成績數據接收
+// 步驟一：成績數據接收與全域變數
 // -----------------------------------------------------------------
 
 let finalScore = 0; 
@@ -16,14 +16,11 @@ let canvasElement;
 
 
 window.addEventListener('message', function (event) {
-    // 執行來源驗證...
-    // ...
     const data = event.data;
     
     if (data && data.type === 'H5P_SCORE_RESULT') {
         
-        // !!! 關鍵步驟：更新全域變數 !!!
-        finalScore = data.score; // 更新全域變數
+        finalScore = data.score; 
         maxScore = data.maxScore;
         scoreText = `最終成績分數: ${finalScore}/${maxScore}`;
         
@@ -44,7 +41,6 @@ window.addEventListener('message', function (event) {
             fullScore = false;
         }
 
-        // 呼叫重新繪製
         if (typeof redraw === 'function') {
             redraw(); 
         }
@@ -62,10 +58,10 @@ window.addEventListener('message', function (event) {
 class Particle {
     constructor(x, y, hue, firework) {
         this.pos = createVector(x, y);
-        this.firework = firework; // 是否是主煙花 (true) 還是爆炸後的碎片 (false)
+        this.firework = firework;
         this.lifespan = 255;
         this.hue = hue;
-        this.acc = createVector(0, 0); // 加速度
+        this.acc = createVector(0, 0); 
         
         if (this.firework) {
             // 主煙花的初始速度 (向上)
@@ -93,14 +89,12 @@ class Particle {
     }
     
     show() {
-        colorMode(HSB, 360, 255, 255, 255); // 使用 HSB 顏色模式
+        colorMode(HSB, 360, 255, 255, 255); 
         
         if (!this.firework) {
-            // 碎片
             strokeWeight(2);
             stroke(this.hue, 255, 255, this.lifespan);
         } else {
-            // 主煙花
             strokeWeight(4);
             stroke(this.hue, 255, 255);
         }
@@ -118,11 +112,15 @@ class Particle {
 // ----------------------------------------------------
 class Firework {
     constructor() {
-        // 為了讓煙花從底部中間發射，我們將寬度設為 canvas 寬度
-        this.hue = random(360); // 隨機顏色 (0-360)
+        this.hue = random(360); 
+        // 限制發射位置 X 軸 (在畫布寬度內)
         this.firework = new Particle(random(width), height, this.hue, true); 
         this.exploded = false;
         this.particles = []; 
+
+        // !!! 關鍵修改：設定煙花爆炸的最大 Y 軸高度 (畫布中線以下) !!!
+        // 畫布的 Y 軸座標是從上到下遞增的
+        this.launchMaxY = random(height * 0.5, height * 0.8); 
     }
     
     update() {
@@ -130,8 +128,8 @@ class Firework {
             this.firework.applyForce(gravity);
             this.firework.update();
             
-            // 檢查是否到達頂點
-            if (this.firework.vel.y >= 0) {
+            // 檢查是否到達頂點 (速度變為正或接近於零)，或者是否超過限制高度
+            if (this.firework.vel.y >= 0 || this.firework.pos.y <= this.launchMaxY) {
                 this.exploded = true;
                 this.explode();
             }
@@ -184,9 +182,9 @@ function setup() {
     canvasElement = canvas.elt; // 取得原始 DOM 元素以便控制 CSS
 
     gravity = createVector(0, 0.2); // 設置重力
-    stroke(255); // 設置畫筆顏色
-    strokeWeight(4); // 設置畫筆粗細
-    background(0); // 黑色背景
+    stroke(255); 
+    strokeWeight(4); 
+    background(0); 
 
     // 必須使用 loop() 才能讓 draw 持續運行，以便繪製動畫
     loop(); 
@@ -196,8 +194,10 @@ function draw() {
     
     // 如果是滿分模式，繪製煙花動畫
     if (fullScore) {
-        canvasElement.style.display = 'block'; // 顯示 Canvas
+        // 由於我們調整了 CSS 讓 Canvas 蓋住 iframe，這裡只需要顯示 Canvas
+        canvasElement.style.display = 'block'; 
         colorMode(RGB);
+        
         // 繪製半透明黑色背景，製造拖尾效果
         background(0, 0, 0, 30); 
         
@@ -212,13 +212,10 @@ function draw() {
             fireworks[i].show();
 
             if (fireworks[i].done()) {
-                fireworks.splice(i, 1); // 移除已完成的煙花
+                fireworks.splice(i, 1); 
             }
         }
         
-        // ** 滿分時，分數文字可以移動到煙花之後，或移除。** // 這裡將分數文字移到煙花繪製之後，但可能會被背景部分覆蓋。
-        // 如果想要讓文字清楚顯示在最上層，請保持在 fullScore == false 區塊的邏輯即可。
-
     } else {
         // 非滿分模式：顯示分數，隱藏 Canvas (讓 H5P 內容可見)
         canvasElement.style.display = 'none'; 
@@ -232,27 +229,23 @@ function draw() {
         let percentage = (maxScore > 0) ? (finalScore / maxScore) * 100 : 0;
         
         textAlign(CENTER, CENTER);
+        
+        // --- 繪製分數文本 ---
         textSize(32);
-
-        // A. 根據分數區間改變文本顏色和內容
-        // -----------------------------------------------------------------
+        
         if (percentage >= 90) {
-            // 滿分或高分：顯示鼓勵文本，使用鮮豔顏色
             fill(0, 200, 50); 
             text("恭喜！優異成績！", width / 2, height / 2 - 50);
             
         } else if (percentage >= 60) {
-            // 中等分數：顯示一般文本，使用黃色
             fill(255, 181, 35); 
             text("成績良好，請再接再厲。", width / 2, height / 2 - 50);
             
         } else if (percentage > 0) {
-            // 低分：顯示警示文本，使用紅色
             fill(200, 0, 0); 
             text("需要加強努力！", width / 2, height / 2 - 50);
             
         } else {
-            // 尚未收到分數或分數為 0
             fill(150);
             text("等待分數...", width / 2, height / 2);
         }
