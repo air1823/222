@@ -1,55 +1,51 @@
-let fireworks = []; // 儲存所有煙花物件的陣列
-let fullScore = false; // 標記是否獲得滿分，用於觸發煙花
+let fireworks = [];
+let fullScore = false; 
 
-// ----------------------------------------------------
-// 粒子 (Particle) 類別：構成煙花爆炸的最小單元
-// ----------------------------------------------------
+
 class Particle {
     constructor(x, y, hue, firework) {
         this.pos = createVector(x, y);
-        this.firework = firework; // 是否是主煙花 (true) 還是爆炸後的碎片 (false)
-        this.lifespan = 255;
+        this.firework = firework; 
         this.hue = hue;
-        this.acc = createVector(0, 0); // 加速度
+        this.acc = createVector(0, 0);
         
         if (this.firework) {
-            // 主煙花的初始速度 (向上)
+            
             this.vel = createVector(0, random(-12, -8)); 
         } else {
-            // 爆炸碎片的速度 (向四周發散)
+           
             this.vel = p5.Vector.random2D();
             this.vel.mult(random(2, 10));
         }
     }
     
-    // 施加力 (例如重力)
+   
     applyForce(force) {
         this.acc.add(force);
     }
-    
-    // 更新粒子狀態
+
     update() {
         if (!this.firework) {
             // 碎片會逐漸消失
-            this.vel.mult(0.9); // 阻力
-            this.lifespan -= 4; // 壽命減少
+            this.vel.mult(0.9); 
+            this.lifespan -= 4; 
         }
         
         this.vel.add(this.acc);
         this.pos.add(this.vel);
-        this.acc.mult(0); // 清除加速度
+        this.acc.mult(0); 
     }
     
-    // 顯示粒子
+   
     show() {
-        colorMode(HSB); // 使用 HSB 顏色模式
+        colorMode(HSB);
         
         if (!this.firework) {
-            // 碎片
+            
             strokeWeight(2);
             stroke(this.hue, 255, 255, this.lifespan);
         } else {
-            // 主煙花
+            
             strokeWeight(4);
             stroke(this.hue, 255, 255);
         }
@@ -57,55 +53,52 @@ class Particle {
         point(this.pos.x, this.pos.y);
     }
 
-    // 檢查粒子是否死亡
+
     done() {
         return this.lifespan < 0;
     }
 }
 
-// ----------------------------------------------------
-// 煙花 (Firework) 類別：包含一個主粒子和爆炸邏輯
-// ----------------------------------------------------
+
 class Firework {
     constructor() {
-        this.hue = random(255); // 隨機顏色
-        this.firework = new Particle(random(width), height, this.hue, true); // 主粒子從底部生成
+        this.hue = random(255);
+        this.firework = new Particle(random(width), height, this.hue, true);
         this.exploded = false;
-        this.particles = []; // 爆炸後的碎片
+        this.particles = []; 
     }
     
-    // 更新煙花
     update() {
         if (!this.exploded) {
             this.firework.applyForce(gravity);
             this.firework.update();
             
-            // 檢查是否到達頂點 (速度變為正或接近於零)
+            
             if (this.firework.vel.y >= 0) {
                 this.exploded = true;
                 this.explode();
             }
         }
         
-        // 更新碎片
+      
         for (let i = this.particles.length - 1; i >= 0; i--) {
             this.particles[i].applyForce(gravity);
             this.particles[i].update();
             if (this.particles[i].done()) {
-                this.particles.splice(i, 1); // 移除死亡的碎片
+                this.particles.splice(i, 1); 
             }
         }
     }
     
-    // 產生爆炸碎片
+  
     explode() {
-        for (let i = 0; i < 100; i++) { // 100 個碎片
+        for (let i = 0; i < 100; i++) {
             const p = new Particle(this.firework.pos.x, this.firework.pos.y, this.hue, false);
             this.particles.push(p);
         }
     }
     
-    // 顯示煙花
+    
     show() {
         if (!this.exploded) {
             this.firework.show();
@@ -116,92 +109,88 @@ class Firework {
         }
     }
     
-    // 檢查煙花是否完成 (主煙花爆炸且所有碎片都消失)
+    
     done() {
         return this.exploded && this.particles.length === 0;
     }
 }
 
-// --- p5.js 主要功能 ---
+
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
-let gravity; // 重力向量
+let gravity;
 
-// 讓 Canvas 顯示/隱藏的 DOM 元素
+
 let canvasElement;
 
 function setup() {
-    // 創建 Canvas 並使其在 body 中是第一個 Canvas 元素
+  
     const container = select('#scoreDisplayContainer');
     const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
-    canvas.parent(container); // 將 canvas 放入容器中
-    canvasElement = canvas.elt; // 取得原始 DOM 元素以便控制 CSS
+    canvas.parent(container); 
+    canvasElement = canvas.elt;
 
-    gravity = createVector(0, 0.2); // 設置重力
-    stroke(255); // 設置畫筆顏色
-    strokeWeight(4); // 設置畫筆粗細
-    background(0); // 黑色背景
+    gravity = createVector(0, 0.2); 
+    stroke(255); 
+    strokeWeight(4);
+    background(0);
 }
 
 function draw() {
-    // 只有在滿分觸發煙花時才繪製
     if (fullScore) {
         canvasElement.style.display = 'block'; // 顯示 Canvas
         colorMode(RGB);
-        // 繪製半透明黑色背景，製造拖尾效果
+       
         background(0, 0, 0, 25); 
         
-        // 每隔一段時間發射新的煙花 (例如每 20 幀)
+       
         if (random(1) < 0.05 && frameCount % 20 === 0) {
-             // 只在 fullScore 模式下隨機發射
+            
             fireworks.push(new Firework()); 
         }
 
-        // 更新和繪製所有煙花
+       
         for (let i = fireworks.length - 1; i >= 0; i--) {
             fireworks[i].update();
             fireworks[i].show();
 
             if (fireworks[i].done()) {
-                fireworks.splice(i, 1); // 移除已完成的煙花
+                fireworks.splice(i, 1);
             }
         }
     } else {
-        // 如果沒有滿分，則隱藏 Canvas
+       
         canvasElement.style.display = 'none'; 
-        // 確保沒有煙花殘留
+    
         fireworks = [];
     }
 }
 
 
-// --- H5P 互動的溝通邏輯 (這是最關鍵的部分) ---
 
-// 監聽 H5P 傳來的訊息
 window.addEventListener('message', (event) => {
-    // 檢查訊息是否來自您的 iframe (您可以根據 event.origin 或其他屬性來進一步檢查安全)
-    // 為了範例，我們假設任何來自 iframe 的 'xAPI' 訊息都是相關的
+  
     
     if (event.data && event.data.context && event.data.context.source === 'H5P.xAPI') {
         const statement = event.data.statement;
         
-        // 檢查是否是 'completed' (完成) 或 'answered' (回答) 的 xAPI 動作
+       
         if (statement.verb.id.endsWith('completed') || statement.verb.id.endsWith('answered')) {
             const result = statement.result;
             
-            // 檢查是否有分數資訊
+           
             if (result && result.score && result.score.scaled !== undefined) {
-                // H5P 通常使用 scaled score (0 到 1 之間)
+               
                 const scaledScore = result.score.scaled;
                 
                 console.log("Scaled Score:", scaledScore);
                 
-                // 判斷是否為滿分 (scaledScore 等於 1.0)
+              
                 if (scaledScore === 1.0) {
                     console.log("滿分! 啟動煙花!");
                     fullScore = true;
-                    // 為了立即開始煙花，可以手動新增一個
+                   
                     fireworks.push(new Firework()); 
                 } else {
                     console.log("未滿分，分數:", scaledScore);
