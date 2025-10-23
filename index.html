@@ -1,48 +1,75 @@
-<style>
-    /* 讓內容置中方便查看 */
-    body { 
-        margin: 0; 
-        display: flex; 
-        flex-direction: column;
-        align-items: center; 
-        min-height: 100vh; 
-        font-family: Arial, sans-serif;
-    }
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>H5P 成績分數顯示範例 (p5.js)</title>
     
-    /* 新增：分數顯示的容器，用於設定相對定位 */
-    #scoreDisplayContainer {
-        margin-top: 20px;
-        /* 讓子元素可以進行絕對定位，實現重疊 */
-        position: relative; 
-        width: 800px; /* 寬度應與 iframe 相同 */
-        height: 600px; /* 高度應與 iframe 相同 */
-    }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.js"></script> 
+    <script src="libraries/p5.min.js"></script>
+    <script src="libraries/p5.sound.min.js"></script>
+    
+    <script src="sketch.js"></script>
+    
+    <style>
+        /* 讓內容置中方便查看 */
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            min-height: 100vh; 
+            font-family: Arial, sans-serif;
+        }
+        
+        /* 容器：用於設定相對定位，讓 iframe 和 Canvas 重疊 */
+        #scoreDisplayContainer {
+            margin-top: 20px;
+            /* 關鍵：設定相對定位 */
+            position: relative; 
+            width: 800px; /* 寬度應與 iframe 相同 */
+            height: 600px; /* 高度應與 iframe 相同 */
+            /* 設置邊界以便觀察容器範圍 */
+            border: 2px solid #333; 
+        }
 
-    /* 確保 iframe 在容器中是正常定位的 */
-    #h5pIframe {
-        /* 為了讓 Canvas 蓋住，可以將 iframe 的 z-index 設定為較低 */
-        z-index: 1; 
-    }
+        /* H5P 內容的 iframe */
+        #h5pIframe {
+            /* 確保 iframe 在容器中正常定位 */
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1; /* 讓 Canvas 蓋住它 */
+            border: none; /* 移除邊框 */
+        }
 
-    /* p5.js Canvas 會自動創建在 body 內。我們需要用 CSS 選取它，並將其定位到重疊的位置 */
-    #scoreDisplayContainer canvas {
-        position: absolute; /* 絕對定位，實現重疊 */
-        top: 0;
-        left: 0;
-        z-index: 10; /* 確保 Canvas 蓋在 iframe 上方 */
-        display: none; /* 預設隱藏 Canvas (關鍵) */
-    }
-</style>
+        /* p5.js Canvas */
+        /* p5.js 創建的 Canvas 會自動創建在父容器 (#scoreDisplayContainer) 中 */
+        #scoreDisplayContainer canvas {
+            position: absolute; /* 絕對定位，實現重疊 */
+            top: 0;
+            left: 0;
+            z-index: 10; /* 確保 Canvas 蓋在 iframe 上方 */
+            
+            /* 關鍵：預設隱藏 Canvas，直到滿分時由 sketch.js 顯示 */
+            display: none; 
+        }
+        
+    </style>
+</head>
 <body>
     <h1>H5P 互動與 p5.js 成績顯示</h1>
     
     <div id="scoreDisplayContainer">
+        
         <iframe 
             id="h5pIframe" 
             src="1.html" 
             width="800" 
-            height="600" 
-            style="border: 2px solid #ccc;">
+            height="600">
         </iframe>
-    </div>
+        
+        </div>
+    
 </body>
+</html>
+```順帶一提，如果要取得所有應用程式的完整功能，請開啟 Gemini 系列應用程式活動記錄。
