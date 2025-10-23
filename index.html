@@ -1,53 +1,255 @@
+// =================================================================
+// 步驟一：模擬成績數據接收
+// -----------------------------------------------------------------
 
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <title>H5P 成績分數顯示範例 (p5.js)</title>
+
+// let scoreText = "成績分數: " + finalScore + "/" + maxScore;
+// 確保這是全域變數
+let finalScore = 0; 
+let maxScore = 0;
+let scoreText = ""; // 用於 p5.js 繪圖的文字
+
+// 【新增】煙火相關全域變數
+let fireworks = []; // 儲存所有活躍的煙火實例
+let gravity; // 用於粒子系統的重力向量
+
+
+window.addEventListener('message', function (event) {
+    // 執行來源驗證...
+    // ...
+    const data = event.data;
     
-    <!-- 引入 p5.js 函式庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.js"></script> 
-
-
-    <script src="libraries/p5.min.js"></script>
-    <script src="libraries/p5.sound.min.js"></script>
-    <!-- 引入您的分數顯示邏輯 (必須在 p5.js 之後載入) -->
-    <!-- 確保 JS 檔案載入順序正確，以讓變數作用於全域範圍 [4] -->
-    <script src="sketch.js"></script>
-    
-    <style>
-        /* 讓內容置中方便查看 */
-        body { 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column;
-            align-items: center; 
-            min-height: 100vh; 
-            font-family: Arial, sans-serif;
+    if (data && data.type === 'H5P_SCORE_RESULT') {
+        
+        // !!! 關鍵步驟：更新全域變數 !!!
+        finalScore = data.score; // 更新全域變數
+        maxScore = data.maxScore;
+        scoreText = `最終成績分數: ${finalScore}/${maxScore}`;
+        
+        console.log("新的分數已接收:", scoreText); 
+        
+        // ----------------------------------------
+        // 關鍵步驟 2: 呼叫重新繪製 (見方案二)
+        // ----------------------------------------
+        if (typeof redraw === 'function') {
+            redraw(); 
         }
-        #h5pContainer {
-            margin-top: 20px;
+        
+        // 【新增】分數滿分時觸發一個煙火
+        if (maxScore > 0 && finalScore === maxScore) {
+            // 在畫面底部中央或隨機位置發射一個煙火
+            fireworks.push(new Firework(width / 2, height)); 
+            // 由於煙火是動畫，我們需要確保 draw() 函數持續循環
+            loop(); 
         }
-        /* p5.js Canvas 會自動創建在 body 內 */
-    </style>
-</head>
-<body>
-    <h1>英文測驗</h1>
-    <h2>拖曳右方答案至左方空格處</h2>
-    
-    <div id="h5pContainer">
-        <!-- 嵌入 H5P 匯出檔案 -->
-        <!-- 將 src 設為 H5P 匯出的 HTML 檔名，例如 h5p_exported.html -->
-        <iframe 
-            id="h5pIframe" 
-            src="1.html" 
-            width="400" 
-            height="300" 
-            style="border: 2px solid #ccc;">
-        </iframe>
-    </div>
-    
-    <!-- 分數將顯示在 p5.js 創建的 Canvas 上 -->
-</body>
-</html>
+    }
+}, false);
 
+
+// =================================================================
+// 步驟二：使用 p5.js 繪製分數 (在網頁 Canvas 上顯示)
+// -----------------------------------------------------------------
+
+function setup() { 
+    // ... (其他設置)
+    createCanvas(windowWidth / 2, windowHeight / 2); 
+    background(255); 
+    // 【修改】setup 中不再是 noLoop()，而是讓它在 draw() 結束時決定是否停止
+    // noLoop(); // 如果您希望分數只有在改變時才繪製，保留此行
+    
+    // 【新增】初始化重力
+    gravity = createVector(0, 0.2);
+    colorMode(HSB); // 使用 HSB 顏色模式，讓煙火顏色變化更方便
+} 
+
+// score_display.js 中的 draw() 函數片段
+
+function draw() { 
+    // 清除背景，使用帶有透明度的黑色背景可以產生尾跡效果
+    background(0, 0, 0, 50); // 背景使用黑色帶點透明度 (trail effect)
+    
+    let percentage = (finalScore / maxScore) * 100;
+
+    // -----------------------------------------------------------------
+    // C. 處理煙火效果 (優先顯示在背景之上)
+    // -----------------------------------------------------------------
+    for (let i = fireworks.length - 1; i >= 0; i--) {
+        fireworks[i].update();
+        fireworks[i].show();
+        if (fireworks[i].done()) {
+            fireworks.splice(i, 1); // 移除已結束的煙火
+        }
+    }
+    
+    // 如果沒有任何煙火在畫面上，且沒有收到新分數，可以停止循環以節省資源
+    if (fireworks.length === 0) {
+        // 僅在沒有煙火動畫時才停止循環，否則保持動畫播放
+        // noLoop(); 
+    }
+    
+    // -----------------------------------------------------------------
+    // A. 根據分數區間改變文本顏色和內容 (畫面反映一)
+    // -----------------------------------------------------------------
+    
+    // 將文本部分覆蓋在動畫之上，因此使用白色背景清除局部區域以確保文本清晰
+    fill(255, 200); // 半透明白色背景，突出文字
+    rectMode(CENTER);
+    rect(width / 2, height / 2, width, 250); // 覆蓋文字周圍區域
+    
+    textSize(80); 
+    textAlign(CENTER);
+    
+    if (percentage >= 100 && maxScore > 0) {
+        // 【修改】滿分且非零分：顯示祝賀文本
+        fill(255, 255, 0); // 黃色
+        text("🎉 完美！恭喜滿分！ 🎉", width / 2, height / 2 - 50);
+        
+    } else if (percentage >= 90) {
+        // 滿分或高分：顯示鼓勵文本，使用鮮豔顏色
+        fill(0, 200, 50); // 綠色 
+        text("恭喜！優異成績！", width / 2, height / 2 - 50);
+        
+    } else if (percentage >= 60) {
+        // 中等分數：顯示一般文本，使用黃色
+        fill(255, 181, 35); 
+        text("成績良好，請再接再厲。", width / 2, height / 2 - 50);
+        
+    } else if (percentage = 0) {
+        // 低分：顯示警示文本，使用紅色
+        fill(200, 0, 0); 
+        text("需要加強努力！", width / 2, height / 2 - 50);
+        
+    } else {
+        // 尚未收到分數或分數為 0
+        fill(150);
+        text(scoreText, width / 2, height / 2);
+    }
+
+    // 顯示具體分數
+    textSize(50);
+    fill(50);
+    text(`得分: ${finalScore}/${maxScore}`, width / 2, height / 2 + 50);
+    
+    
+    // -----------------------------------------------------------------
+    // B. 根據分數觸發不同的幾何圖形反映 (畫面反映二)
+    // -----------------------------------------------------------------
+    
+    if (percentage >= 90) {
+        // 畫一個大圓圈代表完美 
+        fill(0, 200, 50, 150); // 帶透明度
+        noStroke();
+        circle(width / 2, height / 2 + 150, 150);
+        
+    } else if (percentage >= 60) {
+        // 畫一個方形 
+        fill(255, 181, 35, 150);
+        rectMode(CENTER);
+        rect(width / 2, height / 2 + 150, 150, 150);
+    }
+}
+
+// =================================================================
+// 步驟三：定義煙火和粒子類別 (用於特效)
+// -----------------------------------------------------------------
+
+class Particle {
+    constructor(x, y, hu, firework) {
+        this.pos = createVector(x, y);
+        this.firework = firework;
+        this.lifespan = 255;
+        this.hu = hu; // 粒子的色相 (Hue)
+
+        if (this.firework) {
+            // 煙火上升階段 (火箭)
+            this.vel = createVector(0, random(-12, -8));
+        } else {
+            // 爆炸後的粒子
+            this.vel = p5.Vector.random2D(); // 隨機方向
+            this.vel.mult(random(2, 10)); // 隨機速度
+        }
+        this.acc = createVector(0, 0);
+    }
+
+    applyForce(force) {
+        this.acc.add(force);
+    }
+
+    update() {
+        if (!this.firework) {
+            this.vel.mult(0.9); // 爆炸粒子速度隨時間衰減
+            this.lifespan -= 4; // 壽命減少，產生消失效果
+        }
+        this.vel.add(this.acc);
+        this.pos.add(this.vel);
+        this.acc.mult(0); // 重設加速度
+    }
+
+    done() {
+        return this.lifespan < 0;
+    }
+
+    show() {
+        if (!this.firework) {
+            // 爆炸粒子
+            strokeWeight(2);
+            stroke(this.hu, 255, 255, this.lifespan);
+        } else {
+            // 火箭 (上升粒子)
+            strokeWeight(4);
+            stroke(this.hu, 255, 255);
+        }
+        point(this.pos.x, this.pos.y);
+    }
+}
+
+class Firework {
+    constructor(x, y) {
+        this.hu = random(255); // 隨機顏色
+        this.firework = new Particle(x, y, this.hu, true); // 火箭粒子
+        this.exploded = false;
+        this.particles = [];
+    }
+
+    update() {
+        if (!this.exploded) {
+            this.firework.applyForce(gravity);
+            this.firework.update();
+
+            // 爆炸條件：當火箭開始下墜時
+            if (this.firework.vel.y >= 0) {
+                this.exploded = true;
+                this.explode();
+            }
+        }
+
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            this.particles[i].applyForce(gravity);
+            this.particles[i].update();
+            if (this.particles[i].done()) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+
+    explode() {
+        for (let i = 0; i < 100; i++) { // 生成 100 個粒子
+            const p = new Particle(this.firework.pos.x, this.firework.pos.y, this.hu, false);
+            this.particles.push(p);
+        }
+    }
+
+    show() {
+        if (!this.exploded) {
+            this.firework.show();
+        }
+        
+        for (const p of this.particles) {
+            p.show();
+        }
+    }
+
+    done() {
+        return this.exploded && this.particles.length === 0;
+    }
+}
